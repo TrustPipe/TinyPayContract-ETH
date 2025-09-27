@@ -12,19 +12,13 @@ const sepoliaAccounts = [process.env.DEPLOYER_PRIVATE_KEY ?? ""].filter(
 const config: HardhatUserConfig = {
   plugins: [hardhatToolboxViemPlugin],
   solidity: {
-    profiles: {
-      default: {
-        version: "0.8.28",
+    version: "0.8.28",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200,
       },
-      production: {
-        version: "0.8.28",
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 200,
-          },
-        },
-      },
+      viaIR: true,
     },
   },
   networks: {
