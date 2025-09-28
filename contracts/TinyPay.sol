@@ -153,12 +153,12 @@ contract TinyPay {
         address payer,
         address recipient,
         uint256 amount,
-        bytes calldata opt
+        bytes calldata otp
     ) external onlyInitialized {
         require(supportedTokens[token], "COIN_NOT_SUPPORTED");
 
         bytes32 commitHash = sha256(
-            abi.encode(payer, recipient, amount, opt, token)
+            abi.encode(payer, recipient, amount, otp, token)
         );
 
         require(precommits[commitHash].merchant == address(0), "COMMIT_EXISTS");
@@ -175,7 +175,7 @@ contract TinyPay {
 
     function completePayment(
         address token,
-        bytes calldata opt,
+        bytes calldata otp,
         address payer,
         address payable recipient,
         uint256 amount,
@@ -188,11 +188,11 @@ contract TinyPay {
         require(account.initialized, "ACCOUNT_NOT_INITIALIZED");
 
         if (msg.sender != paymaster) {
-            _validatePrecommit(token, payer, recipient, amount, opt, commitHash);
+            _validatePrecommit(token, payer, recipient, amount, otp, commitHash);
         }
 
-        bytes memory optHashAscii = _sha256Hex(opt);
-        require(_bytesEqual(optHashAscii, account.tail), "INVALID_OPT");
+        bytes memory otpHashAscii = _sha256Hex(otp);
+        require(_bytesEqual(otpHashAscii, account.tail), "INVALID_OTP");
 
         uint256 payerBalance = userBalances[payer][token];
         require(payerBalance >= amount, "INSUFFICIENT_BALANCE");
@@ -208,7 +208,7 @@ contract TinyPay {
         uint256 toRecipient = amount - fee;
 
         userBalances[payer][token] = payerBalance - amount;
-        account.tail = opt;
+        account.tail = otp;
         account.tailUpdateCount += 1;
         totalWithdrawalsPerToken[token] += amount;
 
@@ -224,7 +224,7 @@ contract TinyPay {
             token,
             amount,
             fee,
-            opt,
+            otp,
             uint64(block.timestamp)
         );
     }
@@ -389,10 +389,10 @@ contract TinyPay {
         address payer,
         address recipient,
         uint256 amount,
-        bytes calldata opt,
+        bytes calldata otp,
         bytes32 commitHash
     ) private {
-        bytes32 computedHash = sha256(abi.encode(payer, recipient, amount, opt, token));
+        bytes32 computedHash = sha256(abi.encode(payer, recipient, amount, otp, token));
         require(computedHash == commitHash, "INVALID_PRECOMMIT_HASH");
 
         PreCommit memory pc = precommits[commitHash];
