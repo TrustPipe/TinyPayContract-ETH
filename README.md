@@ -1,57 +1,190 @@
-# Sample Hardhat 3 Beta Project (`node:test` and `viem`)
+# TinyPay - Ethereum Payment Contract
 
-This project showcases a Hardhat 3 Beta project using the native Node.js test runner (`node:test`) and the `viem` library for Ethereum interactions.
+A secure and efficient payment contract system built on Ethereum-compatible chains, featuring OTP-based authentication and multi-token support.
 
-To learn more about the Hardhat 3 Beta, please visit the [Getting Started guide](https://hardhat.org/docs/getting-started#getting-started-with-hardhat-3). To share your feedback, join our [Hardhat 3 Beta](https://hardhat.org/hardhat3-beta-telegram-group) Telegram group or [open an issue](https://github.com/NomicFoundation/hardhat/issues/new) in our GitHub issue tracker.
+## Overview
 
-## Project Overview
+TinyPay is a smart contract payment solution that enables:
+- **OTP-based payments**: Secure transactions using one-time password verification
+- **Multi-token support**: Native ETH and ERC20 token payments
+- **Merchant precommit**: Optional payment commitment mechanism
+- **Fee management**: Configurable transaction fees with paymaster support
+- **Account limits**: Customizable payment and tail update limits
 
-This example project includes:
+## Deployed Contracts
 
-- A simple Hardhat configuration file.
-- Foundry-compatible Solidity unit tests.
-- TypeScript integration tests using [`node:test`](nodejs.org/api/test.html), the new Node.js native test runner, and [`viem`](https://viem.sh/).
-- Examples demonstrating how to connect to different types of networks, including locally simulating OP mainnet.
+### U2U Solaris Mainnet
+- **Contract Address**: `0x4690cb265Bc3C12fD218670DfBDC4571d2C5a6B5`
+- **Chain ID**: 39
+- **Explorer**: [View on U2UScan](https://u2uscan.xyz/address/0x4690cb265Bc3C12fD218670DfBDC4571d2C5a6B5)
+- **Paymaster**: `0xEBcddFf6ECD3c3Ddc542a5DCB109ADd04b1eB7e9`
+- **Fee Rate**: 100 bps (1%)
+- **Supported Tokens**:
+  - Native U2U: `0x0000000000000000000000000000000000000000`
+  - pUSDC: `0x665f693241e680c4171F01d90AbEa500af42F9FF`
+  - pUSDT: `0x0820957B320E901622385Cc6C4fca196b20b939F`
 
-## Usage
+### U2U Nebulas Testnet
+- **Contract Address**: `0x1f29403dfc25bd57231e4ad62092baf3e44fb89d`
+- **Chain ID**: 2484
+- **Explorer**: [View on Testnet Explorer](https://testnet.u2uscan.xyz/address/0x1f29403dfc25bd57231e4ad62092baf3e44fb89d)
+
+## Quick Start
+
+### Prerequisites
+
+```bash
+npm install
+```
+
+### Environment Setup
+
+Create a `.env` file:
+
+```env
+DEPLOYER_PRIVATE_KEY=your_private_key_here
+PAYMASTER=0xYourPaymasterAddress  # Optional, defaults to deployer
+FEE_BPS=100  # Optional, defaults to 100 (1%)
+```
+
+### Deployment
+
+#### Deploy to U2U Mainnet
+
+```bash
+npx hardhat run scripts/deploy.ts --network u2u_mainnet
+```
+
+#### Deploy to U2U Testnet
+
+```bash
+npx hardhat run scripts/deploy.ts --network u2u_testnet
+```
+
+### Contract Verification
+
+Due to U2U's custom EVM configuration, automated verification is not supported. Use manual verification:
+
+1. Visit the contract on [U2UScan](https://u2uscan.xyz)
+2. Navigate to "Contract" → "Verify & Publish"
+3. Use these settings:
+   - **Compiler**: `v0.8.30`
+   - **EVM Version**: `paris` (important!)
+   - **Optimization**: Enabled, Runs: `200`
+   - **Via IR**: Enabled
+
+Alternatively, use the verification script:
+
+```bash
+npx tsx scripts/verify-u2u.ts <contract-address>
+```
+
+## Key Features
+
+### OTP-Based Payments
+
+Payments are secured using a hash chain mechanism:
+1. User deposits funds with an initial tail (OTP hash)
+2. To complete payment, user provides the OTP
+3. System verifies `sha256(OTP) == tail`
+4. New tail is set to the OTP for next payment
+
+### Merchant Precommit
+
+Merchants can create payment commitments:
+```solidity
+merchantPrecommit(token, payer, recipient, amount, otp)
+```
+
+This creates a 15-minute window for payment completion with verified parameters.
+
+### Multi-Token Support
+
+Admin can add ERC20 token support:
+```bash
+cast send $CONTRACT "addCoinSupport(address)" $TOKEN_ADDRESS \
+  --private-key $PRIVATE_KEY --rpc-url $RPC_URL
+```
+
+## Important Notes
+
+### EVM Compatibility
+
+⚠️ **U2U Mainnet does not support Shanghai upgrade (PUSH0 opcode)**
+
+The contract is compiled with `evmVersion: "paris"` for compatibility. This results in:
+- Slightly higher gas costs (~1% increase)
+- Larger bytecode (~100-200 bytes)
+- **No functional differences**
+
+U2U Testnet supports Shanghai, but we use Paris for consistency.
+
+### Gas Optimization
+
+The contract uses:
+- Solidity 0.8.30 with IR-based compilation
+- Optimizer runs: 200 (balanced for deployment and execution)
+- Paris EVM target for maximum compatibility
+
+## Development
 
 ### Running Tests
 
-To run all the tests in the project, execute the following command:
-
-```shell
+```bash
 npx hardhat test
 ```
 
-You can also selectively run the Solidity or `node:test` tests:
+### Compile Contracts
 
-```shell
-npx hardhat test solidity
-npx hardhat test nodejs
+```bash
+npx hardhat compile
 ```
 
-### Make a deployment to Sepolia
+### Clean Build Artifacts
 
-This project includes an example Ignition module to deploy the contract. You can deploy this module to a locally simulated chain or to Sepolia.
-
-To run the deployment to a local chain:
-
-```shell
-npx hardhat ignition deploy ignition/modules/Counter.ts
+```bash
+npx hardhat clean
 ```
 
-To run the deployment to Sepolia, you need an account with funds to send the transaction. The provided Hardhat configuration includes a Configuration Variable called `SEPOLIA_PRIVATE_KEY`, which you can use to set the private key of the account you want to use.
+## Contract Interface
 
-You can set the `SEPOLIA_PRIVATE_KEY` variable using the `hardhat-keystore` plugin or by setting it as an environment variable.
+### Core Functions
 
-To set the `SEPOLIA_PRIVATE_KEY` config variable using `hardhat-keystore`:
+- `deposit(address token, uint256 amount, bytes calldata tail)` - Deposit funds
+- `completePayment(...)` - Complete a payment with OTP verification
+- `withdrawFunds(address token, uint256 amount)` - Withdraw user balance
+- `merchantPrecommit(...)` - Create payment commitment
+- `refreshTail(bytes calldata newTail)` - Update OTP tail
 
-```shell
-npx hardhat keystore set SEPOLIA_PRIVATE_KEY
-```
+### Admin Functions
 
-After setting the variable, you can run the deployment with the Sepolia network:
+- `addCoinSupport(address token)` - Add ERC20 token support
+- `setPaymaster(address newPaymaster)` - Update paymaster address
+- `updateFeeRate(uint64 newFeeRate)` - Update fee rate (basis points)
+- `withdrawFee(address token, address payable to, uint256 amount)` - Withdraw collected fees
 
-```shell
-npx hardhat ignition deploy --network sepolia ignition/modules/Counter.ts
-```
+### View Functions
+
+- `getBalance(address user, address token)` - Get user balance
+- `getUserTail(address user)` - Get user's current tail
+- `getUserLimits(address user)` - Get user's payment limits
+- `isCoinSupported(address token)` - Check token support
+- `getSystemStats(address token)` - Get system statistics
+
+## Security Considerations
+
+1. **OTP Management**: Keep OTPs secure and never reuse them
+2. **Tail Updates**: Monitor tail update limits to prevent lockout
+3. **Payment Limits**: Set appropriate limits for your use case
+4. **Token Approvals**: Always verify token addresses before approval
+
+## License
+
+MIT
+
+## Support
+
+For issues and questions:
+- Open an issue on GitHub
+- Contact the development team
+- Check U2U Network documentation: https://docs.u2u.xyz

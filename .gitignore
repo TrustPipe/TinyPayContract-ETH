@@ -22,3 +22,10 @@
 # Local environment configs
 .env
 .env.*
+
+# macOS system files
+.DS_Store
+
+# dev
+.history/
+scripts/local/
